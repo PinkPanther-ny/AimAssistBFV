@@ -11,7 +11,7 @@ import win32con
 import win32gui
 from PIL import ImageTk, Image
 
-from aim_lib import BFV
+from aim_lib import BFV, settings
 from aim_lib.BFV import GameSoldierData, DebugDrawMatrix, DebugDrawVec3
 from aim_lib.bones import bones
 from aim_lib.keycodes import *
@@ -30,12 +30,8 @@ def is_clicked(button, minimal_click_interval=0.3):
         return False
 
 
-def get_enemy_position(Soldier, data):
-    transform = copy.copy(Soldier.aim)
-    # transform[0] = transform[0] + Soldier.accel[0] - data.myaccel[0]
-    # transform[1] = transform[1] + Soldier.accel[1] - data.myaccel[1]
-    # transform[2] = transform[2] + Soldier.accel[2] - data.myaccel[2]
-    return int(transform[0]), int(transform[1]), int(transform[2])
+def get_enemy_position(Soldier):
+    return int(Soldier.aim[0]), int(Soldier.aim[1]), int(Soldier.aim[2])
 
 
 def set_click_through(title):
@@ -93,9 +89,6 @@ def accelDistance(distance):
 def FindDistance(d_x, d_y, d_z, l_x, l_y, l_z):
     distance = math.sqrt((d_x - l_x) ** 2 + (d_y - l_y) ** 2 + (d_z - l_z) ** 2)
     return distance
-
-
-
 
 
 class Aimer:
@@ -173,9 +166,9 @@ class Aimer:
     # return if the enemy is behind the player and not occluded
     # indicate if the enemy is within dangerous range
     def draw_body(self, canvas, Soldier, data):
-        ad_x, ad_y = None, None
+        ad_x, ad_y, ret_aim_info = None, None, None
         try:
-            if advanced_aim_on:
+            if settings.advanced_aim_on:
                 ret_aim_info = self.calcAim_advanced(data, Soldier)
                 ad_x, ad_y = ret_aim_info[-2], ret_aim_info[-1]
         except:
@@ -199,15 +192,15 @@ class Aimer:
             font_size = font_min_size if distance >= font_min_dist else font_min_size + int(
                 (font_min_dist - distance) / x_meter_per_one_font_size)
 
-            if DEBUG:
-                # position = get_enemy_position(Soldier, data)
+            if settings.DEBUG:
+                # position = get_enemy_position(Soldier)
                 # text = f"{int(distance)}m, {int(Soldier.aim[0]), int(Soldier.aim[1]), int(Soldier.aim[2])}"
                 # text = "[%.3f %.3f %.3f ]\n" % ((Soldier.accel[0]), (Soldier.accel[1]), (Soldier.accel[2]))
-                text = f"{int(distance)}m, {ret_aim_info[-3]}"
+                text = f"{int(distance)}m, dfc: {int(ret_aim_info[-3])}, dw: {int(ret_aim_info[0])}"
             else:
                 text = f"{int(distance)}m"
 
-            if draw_soldier_name:
+            if settings.draw_soldier_name:
                 name = Soldier.name + ': ' if len(Soldier.name) != 0 else ''
                 text = name + text
 
@@ -217,7 +210,7 @@ class Aimer:
                     canvas.create_line(self.screensize[0] / 2, 0, head_top[0], head_top[1],
                                        fill=center_line_color[0], width=1)
                 # Early return for performance
-                if int(distance) <= radar_detect_critical_range:
+                if int(distance) <= settings.radar_detect_critical_range:
                     return 1
                 else:
                     return 0
@@ -271,7 +264,7 @@ class Aimer:
                                            part[point_index + 1][0], part[point_index + 1][1],
                                            fill="red", width=3)
 
-        if int(distance) <= radar_detect_critical_range:
+        if int(distance) <= settings.radar_detect_critical_range:
             return 1
         else:
             return 0
@@ -296,7 +289,7 @@ class Aimer:
             l_arm_xy.append((x, y))
         return [body_xy, r_arm_xy, l_arm_xy]
 
-    def search_new_target(self, data, is_all_occluded):
+    def search_new_target(self, data):
         for Soldier in data.soldiers:
             try:
                 dw, distance, delta_x, delta_y, Soldier.ptr, dfc, x, y = self.calcAim_advanced(
@@ -304,7 +297,7 @@ class Aimer:
 
                 if dw > self.fov:
                     continue
-                if (Soldier.occluded and not engage_occluded_target):
+                if Soldier.occluded and not settings.engage_occluded_target:
                     continue
 
                 if dfc < self.closestDistance:  # is actually comparing dfc, not distance
@@ -320,13 +313,13 @@ class Aimer:
                 # print("Exception", sys.exc_info()[0])
                 continue
 
-    def validate_last_target(self, data, is_all_occluded):
+    def validate_last_target(self, data):
         found = False
 
         for Soldier in data.soldiers:
             if self.lastSoldier == Soldier.ptr:
                 found = True
-                if (Soldier.occluded and not engage_occluded_target):
+                if Soldier.occluded and not settings.engage_occluded_target:
                     self.clear_target()
                     continue
 
@@ -362,28 +355,26 @@ class Aimer:
 
     def handle_clicks(self):
 
-        global DEBUG, radar_detect_critical_range, draw_soldier_name, \
-            fps_value_last_update_time, fps_count, fps_value_update_rate, advanced_aim_on
         if is_clicked(MBUTTON):
-            DEBUG = not DEBUG
+            settings.DEBUG = not settings.DEBUG
 
         if is_clicked(ADD, increment_interval):
-            radar_detect_critical_range += increment_detect
+            settings.radar_detect_critical_range += increment_detect
 
         if is_clicked(SUBTRACT, increment_interval):
-            if radar_detect_critical_range > increment_detect:
-                radar_detect_critical_range -= increment_detect
+            if settings.radar_detect_critical_range > increment_detect:
+                settings.radar_detect_critical_range -= increment_detect
             else:
-                radar_detect_critical_range = 0
+                settings.radar_detect_critical_range = 0
 
         if is_clicked(MULTIPLY, 0.2):
             switch_aim_line_style()
 
         if is_clicked(DIVIDE):
-            draw_soldier_name = not draw_soldier_name
+            settings.draw_soldier_name = not settings.draw_soldier_name
 
         if is_clicked(ENTER):
-            advanced_aim_on = not advanced_aim_on
+            settings.advanced_aim_on = not settings.advanced_aim_on
 
     def clear_target(self, message=""):
         self.lastSoldier = 0
@@ -409,43 +400,42 @@ class Aimer:
 
         ###############################################
 
-        global fps_value_last_update_time, fps_count, fps_value_update_rate
-
         while True:
 
             t0 = time.time()
 
             BFV.process(phandle, self.aim_locations[0])
             data = BFV.gamedata
-            is_all_occluded = True
-            #
+            settings.engage_occluded_target = False
+
+            self.closestDistance = 9999
+            self.closestSoldier = None
+            self.closestSoldierMovementX = 0
+            self.closestSoldierMovementY = 0
+
+            # WIP
+
             # for Soldier in data.soldiers:
-            #     if not Soldier.occluded:
-            #         is_all_occluded = False
+            #     ret_aim_info = self.calcAim_advanced(data, Soldier)
+            #     if not Soldier.occluded and ret_aim_info[0] < self.fov:
+            #
+            #         settings.engage_occluded_target = True
             #         break
+
+
 
             if self.lastSoldier != 0:
                 if is_down(self.trigger):
-                    self.validate_last_target(data, is_all_occluded)
+                    self.validate_last_target(data)
                 else:
                     self.clear_target(message="Disengaging: key released")
             else:
-                self.search_new_target(data, is_all_occluded)
+                self.search_new_target(data)
 
             if self.closestSoldier is not None:
-                if cdll.user32.GetAsyncKeyState(self.trigger) & 0x8000:
-                    if self.closestSoldierMovementX > self.screensize[0] / 2 or self.closestSoldierMovementY > \
-                            self.screensize[1] / 2:
-                        continue
-                    else:
-                        if abs(self.closestSoldierMovementX) > self.screensize[0]:
-                            continue
-                        if abs(self.closestSoldierMovementY) > self.screensize[1]:
-                            continue
-                        if self.closestSoldierMovementX == 0 and self.closestSoldierMovementY == 0:
-                            continue
+                if is_down(self.trigger):
+                    self.aim_to_target()
 
-                        self.move_mouse(int(self.closestSoldierMovementX), int(self.closestSoldierMovementY))
             ############################################################################################################
             self.my_canvas.delete("all")
 
@@ -462,9 +452,9 @@ class Aimer:
             self.my_canvas.create_text(self.screensize[0] / 2, 40, fill="lavender",
                                        font=("Times 20 italic bold", 18),
                                        text=f"{count_close_enemy}/{count_all} enemies around you\n"
-                                            f"   (search {radar_detect_critical_range} m)")
+                                            f"   (search {settings.radar_detect_critical_range} m)")
 
-            if DEBUG:
+            if settings.DEBUG:
                 width_rect = 585
                 height_rect = 520
                 offset_x = -8
@@ -493,7 +483,7 @@ class Aimer:
 
             self.my_canvas.create_text(1795, 15, fill="gray80", anchor='nw',
                                        font=(font.NORMAL, 12),
-                                       text=f"Aimgod FPS: {fps_count if fps_count <= max_fps else max_fps}\n")
+                                       text=f"Aimgod FPS: {settings.fps_count if settings.fps_count <= max_fps else max_fps}\n")
 
             self.handle_clicks()
             self.root.update()
@@ -504,24 +494,24 @@ class Aimer:
             except ZeroDivisionError:
                 cur_fps = 60
 
-            if t1 - fps_value_last_update_time >= fps_value_update_rate:
-                fps_count = cur_fps
-                fps_value_last_update_time = t1
+            if t1 - settings.fps_value_last_update_time >= settings.fps_value_update_rate:
+                settings.fps_count = cur_fps
+                settings.fps_value_last_update_time = t1
 
             if cur_fps > max_fps:
                 time.sleep(1 / max_fps - 1 / cur_fps)
 
     def calcAim_advanced(self, data, Soldier):
         try:
-            if advanced_aim_on:
+            if settings.advanced_aim_on:
                 transform = copy.deepcopy(Soldier.aim)
 
                 distance = FindDistance(Soldier.transform[3][0], Soldier.transform[3][1], Soldier.transform[3][2],
                                         data.mytransform[3][0], data.mytransform[3][1], data.mytransform[3][2])
 
                 time_to_hit = 0 + distance / data.myinitialspeed[2] if data.myinitialspeed[2] > 10 else 0
-                enemy_velocity = [fps_count * Soldier.accel[0], fps_count * Soldier.accel[1],
-                                  fps_count * Soldier.accel[2]]
+                enemy_velocity = [settings.fps_count * Soldier.accel[0], settings.fps_count * Soldier.accel[1],
+                                  settings.fps_count * Soldier.accel[2]]
                 transform[0] = transform[0] + time_to_hit * enemy_velocity[0]
                 transform[1] = transform[1] + time_to_hit * enemy_velocity[1] + 0.5 * 12 * (time_to_hit ** 2)
                 transform[2] = transform[2] + time_to_hit * enemy_velocity[2]

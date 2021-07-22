@@ -35,6 +35,6 @@ fps_value_update_rate = 0.5
 
 # For advanced aim assist
 advanced_aim_on = True
-engage_occluded_target = False
+engage_occluded_target = True
 
 draw_soldier_name = True

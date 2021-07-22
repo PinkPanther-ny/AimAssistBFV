@@ -1,0 +1,86 @@
+            BFV.process(phandle, self.aim_locations[0])
+
+            data = BFV.gamedata
+            self.closestDistance = 9999
+            self.closestSoldier = None
+            self.closestSoldierMovementX = 0
+            self.closestSoldierMovementY = 0
+
+            if self.lastSoldier is not 0:
+                if cdll.user32.GetAsyncKeyState(self.trigger) & 0x8000:
+                    found = False
+                    for Soldier in data.soldiers:
+                        if self.lastSoldier == Soldier.ptr:
+                            found = True
+                            if Soldier.occluded:
+                                self.lastSoldier = 0
+                                self.closestSoldier = None
+                                self.lastX = 0
+                                self.lastY = 0
+                                continue
+                            try:
+                                dw, distance, delta_x, delta_y, Soldier.ptr, dfc, x, y = self.calcAim(data, Soldier)
+                                self.closestDistance = dfc
+                                self.closestSoldier = Soldier
+
+                                # accel = 0  # this is WIP
+                                self.closestSoldierMovementX = delta_x  # + (self.lastX * accel)
+                                self.closestSoldierMovementY = delta_y  # + (self.lastY * accel)
+                                self.lastX = delta_x
+                                self.lastY = delta_y
+                                # print("x: %s" % delta_x)
+                            except Exception as e:
+                                self.lastSoldier = 0
+                                self.closestSoldier = None
+                                # print("Disengaging: soldier no longer meets criteria: %s" % e)
+                    if not found:
+                        self.lastSoldier = 0
+                        self.closestSoldier = None
+                        self.lastX = 0
+                        self.lastY = 0
+                        # print("Disengaging: soldier no longer found")
+                else:
+                    self.lastSoldier = 0
+                    self.closestSoldier = None
+                    self.lastX = 0
+                    self.lastY = 0
+                    # print("Disengaging: key released")
+            else:
+                for Soldier in data.soldiers:
+                    try:
+                        dw, distance, delta_x, delta_y, Soldier.ptr, dfc, x, y = self.calcAim(data, Soldier)
+
+                        if dw > self.fov:
+                            continue
+                        if Soldier.occluded:
+                            continue
+
+                        if dfc < self.closestDistance:  # is actually comparing dfc, not distance
+                            if cdll.user32.GetAsyncKeyState(self.trigger) & 0x8000:
+                                self.closestDistance = dfc
+                                self.closestSoldier = Soldier
+                                self.closestSoldierMovementX = delta_x
+                                self.closestSoldierMovementY = delta_y
+                                self.lastSoldier = Soldier.ptr
+                                self.lastSoldierObject = Soldier
+                                self.lastX = delta_x
+                                self.lastY = delta_y
+
+                    except:
+                        # print("Exception", sys.exc_info()[0])
+                        continue
+
+            if self.closestSoldier is not None:
+                if cdll.user32.GetAsyncKeyState(self.trigger) & 0x8000:
+                    if self.closestSoldierMovementX > self.screensize[0] / 2 or self.closestSoldierMovementY > \
+                            self.screensize[1] / 2:
+                        continue
+                    else:
+                        if abs(self.closestSoldierMovementX) > self.screensize[0]:
+                            continue
+                        if abs(self.closestSoldierMovementY) > self.screensize[1]:
+                            continue
+                        if self.closestSoldierMovementX == 0 and self.closestSoldierMovementY == 0:
+                            continue
+
+                        self.move_mouse(int(self.closestSoldierMovementX), int(self.closestSoldierMovementY))
