@@ -1,7 +1,10 @@
 import ctypes
+import subprocess
+import sys
 import time
 
 import win32console
+from elevate.windows import ShellExecuteInfo, SEE_MASK_NOCLOSEPROCESS, SEE_MASK_NO_CONSOLE, ShellExecuteEx
 
 import aim_lib
 from aim_lib import aimer
@@ -23,7 +26,7 @@ def assist():
 
     # Distance Limit
     # Example, set to 100 to limit locking onto soldiers further than 100 meters away.
-    distance_limit = None
+    # distance_limit = None
 
     # Trigger Button
     # Grab your preferred button from lib/keycodes.py
@@ -35,9 +38,9 @@ def assist():
     # Check available bones in lib/bones.py
     aim_locations = [bones['Head'], bones['Spine'], bones['Neck'], bones['Hips']]
 
-    # Key to switch aim location (set to None to disable)
-    aim_switch = keycodes.END
-    # aim_switch = None
+    # # Key to switch aim location (set to None to disable)
+    # aim_switch = keycodes.END
+    # # aim_switch = None
 
     # Normally, you won't need to change this
     # This will attempt to gather your primary screen size. If you have issues or use
@@ -49,13 +52,6 @@ def assist():
     #### END OF CHANGE OPTIONS ####
 
     version = "0.5"
-
-    if fov < 0.1 or fov > 3.5:  # you can delete this if you know what you're doing
-        print("Check your fov setting.")
-        exit(1)
-    if distance_limit is not None and distance_limit <= 0:
-        print("Check your distance_limit setting")
-        exit(1)
 
     # if __name__ == "__main__":
     print("xx4 aim assist Version %s" % version)
@@ -78,26 +74,24 @@ def assist():
         exit(1)
 
     print("Using screensize: %s x %s" % screensize)
-    aimer = aim_lib.aimer.Aimer(screensize, trigger, distance_limit, fov, aim_locations, aim_switch)
+    aimer = aim_lib.aimer.Aimer(screensize, trigger, fov, aim_locations)
     aimer.start()
+
 
 def main():
     win32console.SetConsoleTitle("Aim God")
 
     if not ctypes.windll.shell32.IsUserAnAdmin():
-        print("Program must be Run as administrator!")
-        print("Exiting...")
-        time.sleep(3)
-        # params = ShellExecuteInfo(
-        #     fMask=SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NO_CONSOLE,
-        #     hwnd=None,
-        #     lpVerb=b'runas',
-        #     lpFile=sys.executable.encode('cp1252'),
-        #     lpParameters=subprocess.list2cmdline(sys.argv).encode('cp1252'),
-        #     nShow=int(1))
-        #
-        # if not ShellExecuteEx(ctypes.byref(params)):
-        #     raise ctypes.WinError()
+        params = ShellExecuteInfo(
+            fMask=SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NO_CONSOLE,
+            hwnd=None,
+            lpVerb=b'runas',
+            lpFile=sys.executable.encode('cp1252'),
+            lpParameters=subprocess.list2cmdline(sys.argv).encode('cp1252'),
+            nShow=int(1))
+
+        if not ShellExecuteEx(ctypes.byref(params)):
+            raise ctypes.WinError()
 
     else:
         assist()
@@ -118,6 +112,5 @@ def main():
 #         if not ShellExecuteEx(ctypes.byref(params)):
 #             raise ctypes.WinError()
 #
-#     # elevate(True, False)
 #     else:
 #         assist()

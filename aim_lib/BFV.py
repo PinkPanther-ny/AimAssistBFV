@@ -19,6 +19,7 @@ class GameData:
     mygravity = 0
     myinitialspeed = 0
     mypositionoffset = 0
+    myaccel = None
 
     def __init__(self):
         self.soldiers = []
@@ -194,7 +195,7 @@ def DebugDrawMatrix(canvas, matrix, text_x, text_y, title="", font_size=15, colo
                        text=text)
 
 
-def process(pHandle, cnt, aim_location):
+def process(pHandle, aim_location):
     api._access = 0
     # api._cache_en = True
     del api._cache
@@ -230,11 +231,22 @@ def process(pHandle, cnt, aim_location):
             WeaponFiring = ClientSoldierWeapon(0x5F48)
             WeaponFiringData = WeaponFiring(0x130)
             ShotConfigData = WeaponFiringData(0x18)
+
             initial_speed = ShotConfigData.read_vec4(0xA0)
             position_offset = ShotConfigData.read_vec4(0xB0)
+
             BulletEntityData = ShotConfigData(0xF8)
+
             gravity = BulletEntityData.read_float(0x168)
             drag = BulletEntityData.read_float(0x16C)
+
+            # print("\n##########################")
+            # print("ClientSoldierWeapon: ",ClientSoldierWeapon)
+            # print("WeaponFiring: ",WeaponFiring)
+            # print("WeaponFiringData: ",WeaponFiringData)
+            # print("ShotConfigData: ",ShotConfigData)
+            # print("position_offset: ",position_offset)
+            # print("BulletEntityData: ",BulletEntityData)
 
             # prediction_encrypted_key = mem[Soldier].read_uint64(0x810)
             # prediction = pm.decrypt_ptr(mem[Soldier].read_uint64(0x810), pm.GetEntityKey(mem[]))
@@ -302,7 +314,6 @@ def process(pHandle, cnt, aim_location):
             playerVelocities[Soldier] = aim
 
         last = playerVelocities[Soldier]
-        # if cnt % 16 == 0:
 
         try:
             accel = [(aim[0] - last[0]) / 2, (aim[1] - last[1]) / 2, (aim[2] - last[2]) / 2]
