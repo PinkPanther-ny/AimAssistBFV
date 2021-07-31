@@ -99,6 +99,7 @@ class Aimer:
     closestSoldierMovementY = 0
     lastSoldier = 0
     screensize = (0, 0)
+    blackList = []
 
     def __init__(self, screensize, trigger, fov, aim_locations):
         self.screensize = screensize
@@ -113,6 +114,8 @@ class Aimer:
         self.closestSoldier = None
         self.closestSoldierMovementX = 0
         self.closestSoldierMovementY = 0
+
+        self.blackList = []
 
         # Create tkinter GUI
         self.root = None
@@ -163,6 +166,13 @@ class Aimer:
         command = Input(c_ulong(0), ii)
         windll.user32.SendInput(1, pointer(command), sizeof(command))
 
+    def UpdateBlackList(self):
+        self.blackList = []
+        with open('blackList', 'r') as file1:
+            for name in file1.readlines():
+                self.blackList.append(name.strip())
+                # print(name.strip())
+
     # return if the enemy is behind the player and not occluded
     # indicate if the enemy is within dangerous range
     def draw_body(self, canvas, Soldier, data):
@@ -202,7 +212,13 @@ class Aimer:
 
             if settings.draw_soldier_name:
                 name = Soldier.name + ': ' if len(Soldier.name) != 0 else ''
-                text = name + text
+                if not settings.blackList_On:
+                    text = name + text
+                else:
+                    for i in self.blackList:
+                        if i in name:
+                            text = name + text
+                            break
 
             # Draw centre aim line
             if (not 0 < x < self.screensize[0]) or (not 0 < y < self.screensize[1]):
@@ -297,7 +313,7 @@ class Aimer:
 
                 if dw > self.fov:
                     continue
-                if Soldier.occluded and not settings.engage_occluded_target:
+                if Soldier.occluded and (not settings.engage_occluded_target):
                     continue
 
                 if dfc < self.closestDistance:  # is actually comparing dfc, not distance
@@ -319,7 +335,7 @@ class Aimer:
         for Soldier in data.soldiers:
             if self.lastSoldier == Soldier.ptr:
                 found = True
-                if Soldier.occluded and not settings.engage_occluded_target:
+                if Soldier.occluded and (not settings.engage_occluded_target):
                     self.clear_target()
                     continue
 
@@ -376,6 +392,9 @@ class Aimer:
         if is_clicked(ENTER):
             settings.advanced_aim_on = not settings.advanced_aim_on
 
+        if is_clicked(BACKSPACE):
+            settings.blackList_On = not settings.blackList_On
+
     def clear_target(self, message=""):
         self.lastSoldier = 0
         self.closestSoldier = None
@@ -406,7 +425,6 @@ class Aimer:
 
             BFV.process(phandle, self.aim_locations[0])
             data = BFV.gamedata
-            settings.engage_occluded_target = False
 
             self.closestDistance = 9999
             self.closestSoldier = None
@@ -421,8 +439,6 @@ class Aimer:
             #
             #         settings.engage_occluded_target = True
             #         break
-
-
 
             if self.lastSoldier != 0:
                 if is_down(self.trigger):
@@ -489,6 +505,9 @@ class Aimer:
             self.root.update()
 
             t1 = time.time()
+            if t1 - settings.blackList_last_update > blackList_update_interval:
+                self.UpdateBlackList()
+
             try:
                 cur_fps = int(1 / (t1 - t0))
             except ZeroDivisionError:
@@ -509,7 +528,8 @@ class Aimer:
                 distance = FindDistance(Soldier.transform[3][0], Soldier.transform[3][1], Soldier.transform[3][2],
                                         data.mytransform[3][0], data.mytransform[3][1], data.mytransform[3][2])
 
-                time_to_hit = 0 + distance / data.myinitialspeed[2] if data.myinitialspeed[2] > 10 else 0
+                time_to_hit = 0 + distance / data.myinitialspeed[2] if data.myinitialspeed[2] > 5 \
+                    else settings.default_ini_speed
                 enemy_velocity = [settings.fps_count * Soldier.accel[0], settings.fps_count * Soldier.accel[1],
                                   settings.fps_count * Soldier.accel[2]]
                 transform[0] = transform[0] + time_to_hit * enemy_velocity[0]

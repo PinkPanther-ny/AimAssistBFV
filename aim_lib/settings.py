@@ -38,3 +38,11 @@ advanced_aim_on = True
 engage_occluded_target = True
 
 draw_soldier_name = True
+
+# Vehicle weapon initial speed
+default_ini_speed = 750
+
+# Update blackList counter
+blackList_On = False
+blackList_update_interval = 2
+blackList_last_update = 0
